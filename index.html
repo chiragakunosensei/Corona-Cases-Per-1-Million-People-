@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+	
+	<title>Choropleth Tutorial - Leaflet</title>
+
+	<meta charset="utf-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+	
+	<link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js" integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew==" crossorigin=""></script>
+
+
+	<style>
+	    green {
+            color: #F32013
+        }
+       body {
+    padding: 0;
+    margin: 0;
+}
+        header {
+            padding: 6px 10%;
+        }
+        h1 {
+            display: inline-block;
+            margin-right: 20px;
+            color: #001323;
+        }
+        h2 {
+            display: inline-block;
+            color: #001323;
+        }
+       html, body, #map {
+    height: 100%;
+    width: 100%;
+}
+        }
+        footer {
+            padding: 6px 10%;
+            width: 80%;
+        }
+        p {
+            font-size: 1em;
+            color: #001323;
+        }
+		
+	</style>
+
+	<style>#map { width: 800px; height: 500px; }
+.info { padding: 6px 8px; font: 14px/16px Arial, Helvetica, sans-serif; background: white; background: rgba(255,255,255,0.8); box-shadow: 0 0 15px rgba(0,0,0,0.2); border-radius: 5px; } .info h4 { margin: 0 0 5px; color: #777; }
+.legend { text-align: left; line-height: 18px; color: #555; } .legend i { width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.7; }</style>
+</head>
+<bod
+     <header>
+        <div style="overflow: hidden;">
+   <p <p> <b>Corona Cases per One Million People</b> <br> <br> 
+            <i> NYC Counties Data Accurate as of 3/28</i> <br> <i> All Other Counties Accurate as of 3/26</i>  </p></p>
+</div>
+    </header>
+
+<div id='map'></div>
+
+ <footer>
+      
+       <div style="overflow: hidden;">
+    <p> Map created by Bradley Gardener</p>
+    <p >Data Sources: New York Times and NYC Health</p>
+
+
+    </footer>
+
+
+<script type="text/javascript" src="convertt.geojson"></script>
+
+<script type="text/javascript">
+
+	var map = L.map('map').setView([40.6, -74.05], 8); //establishes the variable of the background map
+
+    map.locate({setView: true, maxZoom: 8});
+    
+	L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
+		maxZoom: 18, //adds map via mapbox token
+		attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
+			'<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+			'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+		id: 'mapbox/light-v9',
+		tileSize: 512, 
+		zoomOffset: -1 
+	}).addTo(map); //adds to map
+
+
+	// control that shows state info on hover
+	var info = L.control(); //establishes variable and links it to a control
+
+	info.onAdd = function (map) {                       
+		this._div = L.DomUtil.create('div', 'info');  //establishes an "info" section or div tag
+		this.update();
+		return this._div;
+	};
+
+	info.update = function (props) {                          //creates and updates the information that appears in the box on hovering over a state
+		this._div.innerHTML = "<green>Corona Cases per Capita: </green>"  + '<br>' +  (props ?
+			'<b>' + props.NAME + '</b><br />'  + "<i>" + props.dens + "</i>" + ' cases per million people'
+			: 'Hover over a county');
+	};
+
+	info.addTo(map);
+
+
+	// get color depending on population density value
+	function getColor(d) {    //establishes the hexcode color for each relative scale of population density
+		return d > 3338 ? '#ff0505' :
+				d > 1034  ? '	#ff5b00' :
+				d > 795  ? '	#ff8f00' :
+				d > 335  ? '#ffc302' :
+				
+							'	#fff600';
+	}
+
+	function style(feature) {          //establishes all of the general color info, including opacity, border color/form, and fills colors from the function getColor
+		return {
+			weight: 2,
+			opacity: 1,
+			color: 'white',
+			dashArray: '3',
+			fillOpacity: 0.7,
+			fillColor: getColor(feature.properties.dens)
+		};
+	}
+
+	function highlightFeature(e) { //sets a larger grey border for states when hovered over, and brings it to the front if necessary
+		var layer = e.target;
+
+		layer.setStyle({
+			weight: 5,
+			color: '#666',
+			dashArray: '',
+			fillOpacity: 0.7
+		});
+
+		if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+			layer.bringToFront();
+		}
+
+		info.update(layer.feature.properties);
+	}
+
+	var geojson;
+
+	function resetHighlight(e) {    //establishes a function for use below
+		geojson.resetStyle(e.target);  
+		info.update();
+	}
+
+	function zoomToFeature(e) {                //sets the map to fit the bounds of a feature (state) when clicked on
+		map.fitBounds(e.target.getBounds());
+	}
+
+	function onEachFeature(feature, layer) {  //calls function highlightFeature on a mouseover and function resetHighlight when the mouseover ends, as well as zoomtoFeature on a click
+		layer.on({
+			mouseover: highlightFeature,
+			mouseout: resetHighlight,
+			click: zoomToFeature
+		});
+	}
+
+	geojson = L.geoJson(dd, {         
+		style: style,
+		onEachFeature: onEachFeature
+	}).addTo(map);                     
+
+	map.attributionControl.addAttribution('Population data &copy; <a href="http://census.gov/">US Census Bureau</a>'); //attributes information to the U.S. Census
+ 
+	var legend = L.control({position: 'bottomright'});   //creates a variable for our legend
+
+	legend.onAdd = function (map) {                  //establishes the legend
+
+		var div = L.DomUtil.create('div', 'info legend'),
+			grades = [0, 500, 1000, 2000, 3000, 5000, 8000],                    //used to create legend objects (colors and associated pop.)
+			labels = [],
+			from, to;
+
+		for (var i = 0; i < grades.length; i++) {                 //uses a forloops to tie the grade numbers to squares in the legend
+			from = grades[i];
+			to = grades[i + 1];
+
+			labels.push(
+				'<i style="background:' + getColor(from + 1) + '"></i> ' +
+				from + (to ? '&ndash;' + to : '+'));
+		}
+
+		div.innerHTML = labels.join('<br>');
+		return div;
+	};
+
+	legend.addTo(map);      //adds to map
+
+</script>
+
+
+
+</body>
+</html>
